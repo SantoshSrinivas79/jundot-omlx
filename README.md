@@ -300,6 +300,90 @@ omlx serve --model-dir ~/models --api-key your-secret-key
 
 All settings can also be configured from the web admin panel at `/admin`. Settings are persisted to `~/.omlx/settings.json`, and CLI flags take precedence.
 
+### Recommended Start Command for This Mac
+
+This checkout has been tuned for Santosh's MacBook Air:
+
+- Apple M1, 8GB unified memory
+- macOS 26.4.1
+- About 142GiB free disk space
+- Local models in `~/.omlx/models`
+- Best-fit model for this machine: `gemma-4-e2b-it-4bit` (about 3.5GB)
+
+For the most stable local coding/chat setup, run Gemma as the only/default
+model and keep memory pressure low:
+
+```bash
+.venv/bin/omlx serve \
+  --model-dir /Users/santosh/.omlx/models/gemma-4-e2b-it-4bit \
+  --host 127.0.0.1 \
+  --port 8000 \
+  --max-model-memory 4.5GB \
+  --max-process-memory auto \
+  --max-concurrent-requests 1 \
+  --paged-ssd-cache-dir /Users/santosh/.omlx/cache \
+  --paged-ssd-cache-max-size 24GB \
+  --hot-cache-max-size 0 \
+  --initial-cache-blocks 128
+```
+
+Why these values work well here:
+
+- `--model-dir` points directly at Gemma, so oMLX does not discover and prefer
+  the larger Qwen model as default.
+- `--max-model-memory 4.5GB` leaves headroom above Gemma's estimated 3.5GB
+  while preventing accidental loading of models that are too large for 8GB RAM.
+- `--max-process-memory auto` resolves to roughly 6GB on this machine, leaving
+  about 2GB for macOS and other apps.
+- `--max-concurrent-requests 1` is best for responsiveness and avoiding memory
+  spikes on an 8GB M1.
+- SSD cache stays enabled for prefix reuse, but `--hot-cache-max-size 0` avoids
+  reserving extra RAM for an in-memory hot tier.
+- `--initial-cache-blocks 128` keeps startup allocation modest for this laptop.
+
+If you are doing short prompts and want slightly more throughput, this balanced
+variant is still reasonable:
+
+```bash
+.venv/bin/omlx serve \
+  --model-dir /Users/santosh/.omlx/models/gemma-4-e2b-it-4bit \
+  --host 127.0.0.1 \
+  --port 8000 \
+  --max-model-memory 5GB \
+  --max-process-memory auto \
+  --max-concurrent-requests 2 \
+  --paged-ssd-cache-dir /Users/santosh/.omlx/cache \
+  --paged-ssd-cache-max-size 24GB \
+  --hot-cache-max-size 0 \
+  --initial-cache-blocks 256
+```
+
+Avoid using the previously persisted `--max-model-memory 12GB` value on this
+8GB machine. It is too permissive and can invite memory pressure if multiple or
+larger models are loaded.
+
+Smoke test after startup:
+
+```bash
+curl -s http://127.0.0.1:8000/health
+
+curl -sS http://127.0.0.1:8000/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"gemma-4-e2b-it-4bit","messages":[{"role":"user","content":"Say hello in one short sentence."}],"max_tokens":24,"temperature":0}'
+```
+
+Open the web interface after the server is running:
+
+```bash
+open http://127.0.0.1:8000/admin
+```
+
+Useful web UI pages:
+
+- Dashboard and model settings: `http://127.0.0.1:8000/admin`
+- Chat interface: `http://127.0.0.1:8000/admin/chat`
+- Health check JSON: `http://127.0.0.1:8000/health`
+
 <details>
 <summary>Architecture</summary>
 
